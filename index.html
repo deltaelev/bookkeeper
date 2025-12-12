@@ -85,17 +85,17 @@
             let url = link.replace('http:', 'https:');
             // Remove curl edge effect which often adds blur/border
             url = url.replace('&edge=curl', '');
-            // Try to request zoom=0 (often highest res) instead of zoom=1
-            if (url.includes('&zoom=1')) {
-                url = url.replace('&zoom=1', '&zoom=0');
-            }
+            // Replace any zoom parameter (e.g. zoom=1) with zoom=0 (highest quality available)
+            url = url.replace(/&zoom=\d+/, '&zoom=0');
             return url;
         };
 
         // --- Helper Components ---
 
-        const Icon = ({ name, size = 24, className = "" }) => {
-            return <i className={`ph ph-${name} ${className}`} style={{ fontSize: size }}></i>;
+        const Icon = ({ name, size = 24, className = "", weight = "regular" }) => {
+            // Fix: Use 'ph' for regular weight, otherwise 'ph-{weight}' (e.g., ph-bold)
+            const weightClass = weight === "regular" ? "ph" : `ph-${weight}`;
+            return <i className={`${weightClass} ph-${name} ${className}`} style={{ fontSize: size }}></i>;
         };
 
         const StarRating = ({ rating, onRate, editable = false }) => {
@@ -123,9 +123,15 @@
 
         const StatusBadge = ({ status }) => {
             const config = STATUS_OPTIONS.find(s => s.id === status) || STATUS_OPTIONS[0];
+            
+            let colorClass = "bg-white/90 dark:bg-slate-900/90 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700";
+            if (status === 'reading') colorClass = "bg-blue-50/90 dark:bg-blue-900/90 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700";
+            if (status === 'finished') colorClass = "bg-green-50/90 dark:bg-green-900/90 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700";
+
             return (
-                <div className={`absolute top-2 left-2 ${config.color} text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1`}>
-                    <Icon name={config.icon} size={12} /> {config.label}
+                <div className={`absolute top-3 left-3 backdrop-blur-md border ${colorClass} text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5 z-10`}>
+                    <Icon name={config.icon} weight="bold" size={12} /> 
+                    <span>{config.label}</span>
                 </div>
             );
         };
@@ -211,8 +217,10 @@
 
             const handleAdd = (item) => {
                 const info = item.volumeInfo;
-                // Prefer largest available image
-                const rawThumbnail = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
+                const links = info.imageLinks || {};
+                
+                // Prioritize larger images if available
+                const rawThumbnail = links.extraLarge || links.large || links.medium || links.thumbnail || links.smallThumbnail || "";
                 
                 const newBook = {
                     id: Date.now().toString(), 
@@ -966,9 +974,13 @@
                 setIsSyncModalOpen(false);
 
                 // Update URL
-                const newUrl = new URL(window.location);
-                newUrl.searchParams.set('list', collection);
-                window.history.pushState({}, '', newUrl);
+                try {
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('list', collection);
+                    window.history.pushState({}, '', newUrl);
+                } catch (e) {
+                    console.log("Could not update URL history:", e);
+                }
 
                 alert(`Connected to list: ${collection}`);
             };
@@ -982,9 +994,13 @@
                 setIsSyncModalOpen(false);
 
                 // Clear URL param
-                const newUrl = new URL(window.location);
-                newUrl.searchParams.delete('list');
-                window.history.pushState({}, '', newUrl);
+                try {
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.delete('list');
+                    window.history.pushState({}, '', newUrl);
+                } catch (e) {
+                    console.log("Could not update URL history:", e);
+                }
 
                 alert("Disconnected. Switched back to offline storage.");
             };
