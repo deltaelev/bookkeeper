@@ -510,7 +510,15 @@
             const [isLoading, setIsLoading] = useState(true);
             const [firebaseConfig, setFirebaseConfig] = useState(() => {
                 const saved = localStorage.getItem('firebase-config');
-                return saved ? JSON.parse(saved) : null;
+                return saved ? JSON.parse(saved) : {
+                    apiKey: "AIzaSyA3jIv8aQBPTt5L1VPXG7FDLunDpp7cwqs",
+                    authDomain: "bookkeeper-dcb87.firebaseapp.com",
+                    projectId: "bookkeeper-dcb87",
+                    storageBucket: "bookkeeper-dcb87.firebasestorage.app",
+                    messagingSenderId: "82166085378",
+                    appId: "1:82166085378:web:efdde01c7919094d75b41b",
+                    measurementId: "G-WQCBBT1GHF"
+                };
             });
             const [db, setDb] = useState(null);
 
