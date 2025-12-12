@@ -15,7 +15,7 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Firebase Compat Library (Easiest for standalone HTML) -->
+    <!-- Firebase Compat Library -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
@@ -40,17 +40,9 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
-        body {
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        /* Markdown Content Styles */
+        body { transition: background-color 0.3s, color 0.3s; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .prose p { margin-bottom: 0.75em; }
     </style>
 </head>
@@ -156,7 +148,7 @@
             const handleAdd = (item) => {
                 const info = item.volumeInfo;
                 const newBook = {
-                    id: Date.now().toString(), // Used as ID for LocalStorage
+                    id: Date.now().toString(), 
                     googleId: item.id,
                     title: info.title,
                     authors: info.authors || [],
@@ -278,36 +270,29 @@
 
             const handleSave = () => {
                 try {
-                    // Try to parse just to validate
-                    let config = configStr;
-                    // Remove "const firebaseConfig =" part if user copied it literally
-                    if (config.includes("=")) {
-                        config = config.split("=")[1];
+                    let text = configStr.trim();
+                    // 1. Strip "const firebaseConfig =" if present
+                    if (text.includes('=')) {
+                        text = text.split('=')[1].trim();
                     }
-                    // Remove trailing semicolon
-                    if (config.trim().endsWith(";")) {
-                        config = config.trim().slice(0, -1);
+                    // 2. Strip trailing semicolon
+                    if (text.endsWith(';')) {
+                        text = text.slice(0, -1).trim();
                     }
                     
-                    // Allow simple object paste
-                    // We need a safer way to parse simplified object notation if JSON.parse fails
-                    // But for now, let's assume JSON or standard JS object format
-                    // Since JSON.parse is strict, we'll try to eval it strictly for config object
-                    // Note: eval is dangerous generally, but here it's client side user input for their own app
+                    // 3. Use new Function to parse as JS Object (handling unquoted keys/comments)
+                    // This creates a temporary function: return { apiKey: "..." }
+                    const parseLoose = new Function("return " + text);
+                    const config = parseLoose();
                     
-                    let parsed;
-                    try {
-                        parsed = JSON.parse(config);
-                    } catch(e) {
-                         // Fallback for JS Object notation (keys without quotes)
-                         // This is a rough hack to support direct copy paste from Firebase console
-                         const validJson = config.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":').replace(/'/g, '"');
-                         parsed = JSON.parse(validJson);
+                    if (!config || !config.apiKey) {
+                        throw new Error("Missing API Key");
                     }
 
-                    onSave(parsed);
+                    onSave(config);
                 } catch (e) {
-                    alert("Invalid JSON or Configuration object. Please copy the object inside the curly braces {} from Firebase.");
+                    console.error(e);
+                    alert("Could not parse the config. Please copy the entire block from Firebase and try again.");
                 }
             };
 
@@ -328,7 +313,7 @@
 
                         <textarea
                             className="w-full h-40 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder='{ apiKey: "...", authDomain: "...", projectId: "..." }'
+                            placeholder='Paste your firebaseConfig code here...'
                             value={configStr}
                             onChange={(e) => setConfigStr(e.target.value)}
                         ></textarea>
