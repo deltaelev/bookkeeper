@@ -70,6 +70,28 @@
             { id: 'gray', name: 'Gray', bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-600', dot: 'bg-gray-300' },
         ];
 
+        const STATUS_OPTIONS = [
+            { id: 'want-to-read', label: 'Want to Read', icon: 'bookmark', color: 'bg-gray-500' },
+            { id: 'reading', label: 'Reading', icon: 'book-open', color: 'bg-blue-500' },
+            { id: 'finished', label: 'Finished', icon: 'check-circle', color: 'bg-green-500' },
+        ];
+
+        // --- Helper Functions ---
+        
+        // Helper to get higher quality image from Google Books
+        const getHighResImage = (link) => {
+            if (!link) return "";
+            // Replace http with https
+            let url = link.replace('http:', 'https:');
+            // Remove curl edge effect which often adds blur/border
+            url = url.replace('&edge=curl', '');
+            // Try to request zoom=0 (often highest res) instead of zoom=1
+            if (url.includes('&zoom=1')) {
+                url = url.replace('&zoom=1', '&zoom=0');
+            }
+            return url;
+        };
+
         // --- Helper Components ---
 
         const Icon = ({ name, size = 24, className = "" }) => {
@@ -99,6 +121,15 @@
             );
         };
 
+        const StatusBadge = ({ status }) => {
+            const config = STATUS_OPTIONS.find(s => s.id === status) || STATUS_OPTIONS[0];
+            return (
+                <div className={`absolute top-2 left-2 ${config.color} text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1`}>
+                    <Icon name={config.icon} size={12} /> {config.label}
+                </div>
+            );
+        };
+
         const BookCard = ({ book, onClick, onDelete }) => {
             return (
                 <div 
@@ -113,7 +144,7 @@
                                 <Icon name="book" size={48} />
                             </div>
                         )}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onDelete(book.id); }}
                                 className="bg-red-500 text-white p-2 rounded-full shadow-lg hover:bg-red-600"
@@ -122,11 +153,8 @@
                                 <Icon name="trash" size={16} />
                             </button>
                         </div>
-                        {book.status === 'reading' && (
-                             <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
-                                Reading
-                             </div>
-                        )}
+                        
+                        <StatusBadge status={book.status || 'want-to-read'} />
                     </div>
                     <div className="p-4 flex-1 flex flex-col">
                         <h3 className="font-bold text-lg leading-tight mb-1 line-clamp-2" title={book.title}>{book.title}</h3>
@@ -183,17 +211,20 @@
 
             const handleAdd = (item) => {
                 const info = item.volumeInfo;
+                // Prefer largest available image
+                const rawThumbnail = info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail;
+                
                 const newBook = {
                     id: Date.now().toString(), 
                     googleId: item.id,
                     title: info.title,
                     authors: info.authors || [],
-                    thumbnail: info.imageLinks?.thumbnail?.replace('http:', 'https:') || "",
+                    thumbnail: getHighResImage(rawThumbnail),
                     description: info.description || "",
                     pageCount: info.pageCount || 0,
                     categories: info.categories || [],
                     rating: 0,
-                    status: 'read',
+                    status: 'want-to-read', // Default status
                     notes: [],
                     dateAdded: new Date().toISOString()
                 };
@@ -469,6 +500,10 @@
             const handleRatingChange = (newRating) => {
                 onUpdate({ ...book, rating: newRating });
             };
+            
+            const handleStatusChange = (newStatus) => {
+                onUpdate({ ...book, status: newStatus });
+            };
 
             const filteredNotes = book.notes.filter(note => {
                 if (filterColor === 'all') return true;
@@ -503,6 +538,27 @@
                             </div>
                             
                             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Reading Status</h3>
+                                <div className="space-y-2">
+                                    {STATUS_OPTIONS.map(status => (
+                                        <button
+                                            key={status.id}
+                                            onClick={() => handleStatusChange(status.id)}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all
+                                                ${(book.status || 'want-to-read') === status.id 
+                                                    ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500 dark:bg-blue-900/20 dark:border-blue-500' 
+                                                    : 'border-gray-200 hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-700'}`}
+                                        >
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${status.color}`}>
+                                                <Icon name={status.icon} size={16} />
+                                            </div>
+                                            <span className="font-medium text-sm">{status.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
                                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Rating</h3>
                                 <div className="flex justify-center mb-2">
                                     <StarRating rating={book.rating} onRate={handleRatingChange} editable={true} />
@@ -522,6 +578,10 @@
                                     <div className="flex justify-between">
                                         <span className="text-gray-500">Genre</span>
                                         <span>{book.categories?.[0] || "-"}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Added</span>
+                                        <span>{new Date(book.dateAdded).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             </div>
@@ -799,6 +859,7 @@
             const [searchTerm, setSearchTerm] = useState("");
             const [sortOption, setSortOption] = useState("date-desc");
             const [genreFilter, setGenreFilter] = useState("All");
+            const [statusFilter, setStatusFilter] = useState("All");
 
             // --- Storage Logic ---
             
@@ -939,7 +1000,8 @@
                     .filter(book => {
                         const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase());
                         const matchesGenre = genreFilter === "All" || book.categories?.[0] === genreFilter;
-                        return matchesSearch && matchesGenre;
+                        const matchesStatus = statusFilter === "All" || (book.status || 'want-to-read') === statusFilter;
+                        return matchesSearch && matchesGenre && matchesStatus;
                     })
                     .sort((a, b) => {
                         switch (sortOption) {
@@ -951,7 +1013,7 @@
                             default: return 0;
                         }
                     });
-            }, [books, searchTerm, sortOption, genreFilter]);
+            }, [books, searchTerm, sortOption, genreFilter, statusFilter]);
 
             const selectedBook = books.find(b => b.id === selectedBookId);
 
@@ -1024,7 +1086,15 @@
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-wrap gap-2">
+                                        <select 
+                                            className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                        >
+                                            <option value="All">All Statuses</option>
+                                            {STATUS_OPTIONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                                        </select>
                                         <select 
                                             className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
                                             value={genreFilter}
