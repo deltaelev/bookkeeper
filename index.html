@@ -303,17 +303,31 @@
                         
                         <div className="mb-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">1. List Name (Unique ID)</label>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                    Use a unique name (e.g., "alex-books") to separate your list from others.
-                                </p>
-                                <input 
-                                    type="text"
-                                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={localCollection}
-                                    onChange={(e) => setLocalCollection(e.target.value)}
-                                    placeholder="books"
-                                />
+                                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">1. Select or Create List</label>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <button 
+                                        onClick={() => setLocalCollection('alices-books')}
+                                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium transition-all ${localCollection === 'alices-books' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:text-gray-400 dark:hover:bg-slate-700'}`}
+                                    >
+                                        <Icon name="user" /> Alice's Books
+                                    </button>
+                                    <button 
+                                        onClick={() => setLocalCollection('daniels-books')}
+                                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium transition-all ${localCollection === 'daniels-books' ? 'bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-400' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:text-gray-400 dark:hover:bg-slate-700'}`}
+                                    >
+                                        <Icon name="user" /> Daniel's Books
+                                    </button>
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs uppercase font-bold tracking-wider">Custom ID</span>
+                                    <input 
+                                        type="text"
+                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg py-2 pl-24 pr-4 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                                        value={localCollection}
+                                        onChange={(e) => setLocalCollection(e.target.value)}
+                                        placeholder="e.g. shared-list"
+                                    />
+                                </div>
                             </div>
 
                             <div>
@@ -533,6 +547,9 @@
                 };
             });
             const [collectionName, setCollectionName] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                const urlList = params.get('list');
+                if (urlList) return urlList;
                 return localStorage.getItem('collection-name') || 'books';
             });
             const [db, setDb] = useState(null);
@@ -654,6 +671,12 @@
                 setFirebaseConfig(config);
                 setCollectionName(collection);
                 setIsSyncModalOpen(false);
+
+                // Update URL
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.set('list', collection);
+                window.history.pushState({}, '', newUrl);
+
                 alert(`Connected to list: ${collection}`);
             };
 
@@ -664,6 +687,12 @@
                 setCollectionName('books');
                 setDb(null);
                 setIsSyncModalOpen(false);
+
+                // Clear URL param
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.delete('list');
+                window.history.pushState({}, '', newUrl);
+
                 alert("Disconnected. Switched back to offline storage.");
             };
 
