@@ -44,6 +44,23 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .prose p { margin-bottom: 0.75em; }
+        
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .mic-active {
+            animation: pulse-red 1.5s infinite;
+            background-color: #fee2e2;
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        .dark .mic-active {
+            background-color: #450a0a;
+            color: #f87171;
+            border-color: #f87171;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 dark:bg-slate-900 dark:text-gray-100 transition-colors duration-300 min-h-screen">
@@ -54,7 +71,6 @@
 
         // --- Constants ---
 
-        // Adjusted to -300 shades for the 'dot' to be softer/less neon
         const PASTEL_PALETTE = [
             { id: 'rose', name: 'Rose', bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-600', dot: 'bg-rose-300' },
             { id: 'orange', name: 'Orange', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600', dot: 'bg-orange-300' },
@@ -78,14 +94,10 @@
 
         // --- Helper Functions ---
         
-        // Helper to get higher quality image from Google Books
         const getHighResImage = (link) => {
             if (!link) return "";
-            // Replace http with https
             let url = link.replace('http:', 'https:');
-            // Remove curl edge effect which often adds blur/border
             url = url.replace('&edge=curl', '');
-            // Replace any zoom parameter (e.g. zoom=1) with zoom=0 (highest quality available)
             url = url.replace(/&zoom=\d+/, '&zoom=0');
             return url;
         };
@@ -93,7 +105,6 @@
         // --- Helper Components ---
 
         const Icon = ({ name, size = 24, className = "", weight = "regular" }) => {
-            // Fix: Use 'ph' for regular weight, otherwise 'ph-{weight}' (e.g., ph-bold)
             const weightClass = weight === "regular" ? "ph" : `ph-${weight}`;
             return <i className={`${weightClass} ph-${name} ${className}`} style={{ fontSize: size }}></i>;
         };
@@ -124,13 +135,16 @@
         const StatusBadge = ({ status }) => {
             const config = STATUS_OPTIONS.find(s => s.id === status) || STATUS_OPTIONS[0];
             
-            let colorClass = "bg-white/90 dark:bg-slate-900/90 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700";
-            if (status === 'reading') colorClass = "bg-blue-50/90 dark:bg-blue-900/90 text-blue-700 dark:text-blue-200 border-blue-200 dark:border-blue-700";
-            if (status === 'finished') colorClass = "bg-green-50/90 dark:bg-green-900/90 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700";
+            // Match the colors from the buttons in the detail view
+            let iconColor = "text-gray-500";
+            if (status === 'reading') iconColor = "text-blue-500";
+            if (status === 'finished') iconColor = "text-green-500";
 
             return (
-                <div className={`absolute top-3 left-3 backdrop-blur-md border ${colorClass} text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1.5 z-10`}>
-                    <Icon name={config.icon} weight="bold" size={12} /> 
+                <div className="absolute top-3 left-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1.5 z-10">
+                    <div className={`${iconColor}`}>
+                        <Icon name={config.icon} weight="fill" size={14} /> 
+                    </div>
                     <span>{config.label}</span>
                 </div>
             );
@@ -219,7 +233,6 @@
                 const info = item.volumeInfo;
                 const links = info.imageLinks || {};
                 
-                // Prioritize larger images if available
                 const rawThumbnail = links.extraLarge || links.large || links.medium || links.thumbnail || links.smallThumbnail || "";
                 
                 const newBook = {
@@ -232,7 +245,7 @@
                     pageCount: info.pageCount || 0,
                     categories: info.categories || [],
                     rating: 0,
-                    status: 'want-to-read', // Default status
+                    status: 'want-to-read',
                     notes: [],
                     dateAdded: new Date().toISOString()
                 };
@@ -327,6 +340,47 @@
                                 className="px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
                             >
                                 Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const EditCoverModal = ({ isOpen, onClose, onSave, currentUrl }) => {
+            const [url, setUrl] = useState(currentUrl);
+            
+            useEffect(() => {
+                if (isOpen) setUrl(currentUrl);
+            }, [isOpen, currentUrl]);
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">Change Cover Image</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Paste a direct link to an image (ending in .jpg, .png, etc.)</p>
+                        <input 
+                            type="text" 
+                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg px-4 py-2 mb-6 focus:ring-2 focus:ring-blue-500 outline-none dark:text-white"
+                            value={url}
+                            onChange={e => setUrl(e.target.value)}
+                            placeholder="https://example.com/cover.jpg"
+                            autoFocus
+                        />
+                        <div className="flex justify-end gap-3">
+                            <button 
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-lg font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => onSave(url)}
+                                className="px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            >
+                                Save Cover
                             </button>
                         </div>
                     </div>
@@ -440,6 +494,7 @@
             const [noteLine, setNoteLine] = useState("");
             const [selectedColor, setSelectedColor] = useState("blue"); // Default color
             const [filterColor, setFilterColor] = useState("all");
+            const [isListening, setIsListening] = useState(false);
             
             // State for changing color of an existing note
             const [colorPickerNoteId, setColorPickerNoteId] = useState(null);
@@ -449,6 +504,82 @@
             const [editText, setEditText] = useState("");
             const [editPage, setEditPage] = useState("");
             const [editLine, setEditLine] = useState("");
+
+            // State for editing cover
+            const [isEditingCover, setIsEditingCover] = useState(false);
+
+            // Microphone Handling
+            const recognitionRef = useRef(null);
+            const savedTextRef = useRef(""); // Store text state before listening
+
+            useEffect(() => {
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    recognitionRef.current = new SpeechRecognition();
+                    recognitionRef.current.continuous = true; // Keep listening
+                    recognitionRef.current.interimResults = true; // Show results immediately
+
+                    recognitionRef.current.onresult = (event) => {
+                        let transcript = '';
+                        // Reconstruct the full transcript from the current session
+                        for (let i = 0; i < event.results.length; ++i) {
+                            transcript += event.results[i][0].transcript;
+                        }
+                        
+                        // Combine saved text with new transcript
+                        // Check if we need a space (if saved text exists and doesn't end in space)
+                        const prefix = savedTextRef.current;
+                        const spacer = prefix && !prefix.endsWith(" ") ? " " : "";
+                        const fullText = prefix + spacer + transcript;
+
+                        // Update the correct state based on mode
+                        if (textEditingId) {
+                            setEditText(fullText);
+                        } else {
+                            setNoteText(fullText);
+                        }
+                    };
+
+                    recognitionRef.current.onend = () => {
+                        setIsListening(false);
+                    };
+                    
+                    recognitionRef.current.onerror = (event) => {
+                        console.error("Speech recognition error", event.error);
+                        setIsListening(false);
+                    };
+                }
+                
+                // Cleanup function
+                return () => {
+                    if (recognitionRef.current) {
+                        try {
+                            recognitionRef.current.stop();
+                        } catch(e) { /* ignore */ }
+                    }
+                };
+            }, [textEditingId]); // Re-init if mode changes
+
+            const toggleListening = () => {
+                if (!recognitionRef.current) {
+                    alert("Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.");
+                    return;
+                }
+
+                if (isListening) {
+                    recognitionRef.current.stop();
+                } else {
+                    // Save the current text before we start appending voice
+                    savedTextRef.current = textEditingId ? editText : noteText;
+                    try {
+                        recognitionRef.current.start();
+                        setIsListening(true);
+                    } catch(e) {
+                        console.error("Failed to start speech recognition", e);
+                        setIsListening(false);
+                    }
+                }
+            };
 
             const handleAddNote = (e) => {
                 e.preventDefault();
@@ -491,6 +622,7 @@
                 setEditPage(note.page || "");
                 setEditLine(note.line || "");
                 setColorPickerNoteId(null); // Close color picker if open
+                setIsListening(false); // Reset listening state
             };
 
             // Save edited text
@@ -511,6 +643,11 @@
             
             const handleStatusChange = (newStatus) => {
                 onUpdate({ ...book, status: newStatus });
+            };
+
+            const handleCoverUpdate = (newUrl) => {
+                onUpdate({ ...book, thumbnail: newUrl });
+                setIsEditingCover(false);
             };
 
             const filteredNotes = book.notes.filter(note => {
@@ -535,7 +672,7 @@
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="space-y-6">
-                            <div className="aspect-[2/3] w-full max-w-sm mx-auto bg-gray-200 dark:bg-slate-700 rounded-xl overflow-hidden shadow-xl">
+                            <div className="aspect-[2/3] w-full max-w-sm mx-auto bg-gray-200 dark:bg-slate-700 rounded-xl overflow-hidden shadow-xl relative group">
                                 {book.thumbnail ? (
                                     <img src={book.thumbnail} alt={book.title} className="w-full h-full object-cover" />
                                 ) : (
@@ -543,6 +680,16 @@
                                         <Icon name="book" size={64} className="text-gray-400" />
                                     </div>
                                 )}
+                                {/* Edit Cover Overlay - Subtle Pencil Button */}
+                                <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                    <button 
+                                        onClick={() => setIsEditingCover(true)}
+                                        className="bg-white/90 dark:bg-slate-800/90 text-gray-700 dark:text-white p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform backdrop-blur-sm border border-gray-200 dark:border-slate-600"
+                                        title="Change Cover"
+                                    >
+                                        <Icon name="pencil-simple" weight="bold" size={20} />
+                                    </button>
+                                </div>
                             </div>
                             
                             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700">
@@ -642,14 +789,27 @@
                                 </div>
 
                                 {/* Add Note Form */}
-                                <form onSubmit={handleAddNote} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 mb-8">
+                                <form onSubmit={handleAddNote} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 mb-8 relative">
                                     <textarea
-                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none pr-10"
                                         rows="3"
                                         placeholder="Write your thought, quote, or reference..."
                                         value={noteText}
                                         onChange={(e) => setNoteText(e.target.value)}
                                     ></textarea>
+                                    
+                                    {/* Microphone Button */}
+                                    <button
+                                        type="button"
+                                        onClick={toggleListening}
+                                        className={`absolute right-6 top-6 p-2 rounded-full transition-all 
+                                            ${isListening 
+                                                ? 'mic-active' 
+                                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-200'}`}
+                                        title={isListening ? "Stop Listening" : "Start Voice Input"}
+                                    >
+                                        <Icon name={isListening ? "microphone-slash" : "microphone"} size={20} weight={isListening ? "fill" : "regular"} />
+                                    </button>
                                     
                                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                                         <div className="flex gap-3 w-full sm:w-auto">
@@ -767,7 +927,7 @@
 
                                                         {/* Note Content or Edit Form */}
                                                         {isEditingText ? (
-                                                            <div className="mt-2">
+                                                            <div className="mt-2 relative">
                                                                 <div className="flex gap-2 mb-2">
                                                                      <input 
                                                                         type="text" 
@@ -784,13 +944,27 @@
                                                                         onChange={(e) => setEditLine(e.target.value)}
                                                                     />
                                                                 </div>
-                                                                <textarea
-                                                                    className="w-full bg-gray-50 dark:bg-slate-900 border border-blue-500 rounded-lg p-3 text-gray-800 dark:text-gray-200 outline-none resize-none mb-2"
-                                                                    rows="3"
-                                                                    value={editText}
-                                                                    onChange={(e) => setEditText(e.target.value)}
-                                                                    autoFocus
-                                                                />
+                                                                <div className="relative">
+                                                                    <textarea
+                                                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-blue-500 rounded-lg p-3 text-gray-800 dark:text-gray-200 outline-none resize-none mb-2 pr-10"
+                                                                        rows="3"
+                                                                        value={editText}
+                                                                        onChange={(e) => setEditText(e.target.value)}
+                                                                        autoFocus
+                                                                    />
+                                                                    {/* Microphone Button for Editing */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={toggleListening}
+                                                                        className={`absolute right-2 top-2 p-2 rounded-full transition-all 
+                                                                            ${isListening 
+                                                                                ? 'mic-active' 
+                                                                                : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-200'}`}
+                                                                        title={isListening ? "Stop Listening" : "Start Voice Input"}
+                                                                    >
+                                                                        <Icon name={isListening ? "microphone-slash" : "microphone"} size={16} weight={isListening ? "fill" : "regular"} />
+                                                                    </button>
+                                                                </div>
                                                                 <div className="flex justify-end gap-2">
                                                                     <button 
                                                                         onClick={() => setTextEditingId(null)}
@@ -825,11 +999,17 @@
                             </div>
                         </div>
                     </div>
+                    
+                    {/* Add Edit Cover Modal Here */}
+                    <EditCoverModal 
+                        isOpen={isEditingCover}
+                        onClose={() => setIsEditingCover(false)}
+                        onSave={handleCoverUpdate}
+                        currentUrl={book.thumbnail}
+                    />
                 </div>
             );
         };
-
-        // --- Main App Component ---
 
         const App = () => {
             const [books, setBooks] = useState([]);
@@ -847,9 +1027,11 @@
                 };
             });
             const [collectionName, setCollectionName] = useState(() => {
-                const params = new URLSearchParams(window.location.search);
-                const urlList = params.get('list');
-                if (urlList) return urlList;
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const urlList = params.get('list');
+                    if (urlList) return urlList;
+                } catch(e) {}
                 return localStorage.getItem('collection-name') || 'books';
             });
             const [db, setDb] = useState(null);
