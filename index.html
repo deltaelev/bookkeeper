@@ -259,37 +259,32 @@
             );
         };
 
-        const SyncSettingsModal = ({ isOpen, onClose, onSave, currentConfig, onClear }) => {
+        const SyncSettingsModal = ({ isOpen, onClose, onSave, currentConfig, onClear, currentCollection, onCollectionChange }) => {
             const [configStr, setConfigStr] = useState("");
+            const [localCollection, setLocalCollection] = useState(currentCollection || "books");
             
             useEffect(() => {
-                if(isOpen) setConfigStr(currentConfig ? JSON.stringify(currentConfig, null, 2) : "");
-            }, [isOpen, currentConfig]);
+                if(isOpen) {
+                    setConfigStr(currentConfig ? JSON.stringify(currentConfig, null, 2) : "");
+                    setLocalCollection(currentCollection || "books");
+                }
+            }, [isOpen, currentConfig, currentCollection]);
 
             if (!isOpen) return null;
 
             const handleSave = () => {
                 try {
                     let text = configStr.trim();
-                    // 1. Strip "const firebaseConfig =" if present
-                    if (text.includes('=')) {
-                        text = text.split('=')[1].trim();
-                    }
-                    // 2. Strip trailing semicolon
-                    if (text.endsWith(';')) {
-                        text = text.slice(0, -1).trim();
-                    }
+                    if (text.includes('=')) text = text.split('=')[1].trim();
+                    if (text.endsWith(';')) text = text.slice(0, -1).trim();
                     
-                    // 3. Use new Function to parse as JS Object (handling unquoted keys/comments)
-                    // This creates a temporary function: return { apiKey: "..." }
                     const parseLoose = new Function("return " + text);
                     const config = parseLoose();
                     
-                    if (!config || !config.apiKey) {
-                        throw new Error("Missing API Key");
-                    }
+                    if (!config || !config.apiKey) throw new Error("Missing API Key");
 
-                    onSave(config);
+                    const cleanCollection = localCollection.trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "books";
+                    onSave(config, cleanCollection);
                 } catch (e) {
                     console.error(e);
                     alert("Could not parse the config. Please copy the entire block from Firebase and try again.");
@@ -298,7 +293,7 @@
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <Icon name="cloud" className="text-blue-500"/> Cloud Sync Setup
@@ -306,17 +301,34 @@
                             <button onClick={onClose}><Icon name="x" /></button>
                         </div>
                         
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            To sync between devices, create a free project at <a href="https://console.firebase.google.com" target="_blank" className="text-blue-500 underline">console.firebase.google.com</a>.
-                            Create a Firestore database (Test mode), then copy the <code>firebaseConfig</code> object from Project Settings.
-                        </p>
+                        <div className="mb-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">1. List Name (Unique ID)</label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    Use a unique name (e.g., "alex-books") to separate your list from others.
+                                </p>
+                                <input 
+                                    type="text"
+                                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                                    value={localCollection}
+                                    onChange={(e) => setLocalCollection(e.target.value)}
+                                    placeholder="books"
+                                />
+                            </div>
 
-                        <textarea
-                            className="w-full h-40 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder='Paste your firebaseConfig code here...'
-                            value={configStr}
-                            onChange={(e) => setConfigStr(e.target.value)}
-                        ></textarea>
+                            <div>
+                                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">2. Firebase Config</label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                    Create a project at <a href="https://console.firebase.google.com" target="_blank" className="text-blue-500 underline">console.firebase.google.com</a>, create a Firestore database (Test mode), and copy the <code>firebaseConfig</code>.
+                                </p>
+                                <textarea
+                                    className="w-full h-32 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                                    placeholder='Paste your firebaseConfig code here...'
+                                    value={configStr}
+                                    onChange={(e) => setConfigStr(e.target.value)}
+                                ></textarea>
+                            </div>
+                        </div>
 
                         <div className="flex justify-between">
                             {currentConfig ? (
@@ -520,6 +532,9 @@
                     measurementId: "G-WQCBBT1GHF"
                 };
             });
+            const [collectionName, setCollectionName] = useState(() => {
+                return localStorage.getItem('collection-name') || 'books';
+            });
             const [db, setDb] = useState(null);
 
             const [darkMode, setDarkMode] = useState(() => {
@@ -562,7 +577,7 @@
                 setIsLoading(true);
                 if (db) {
                     // Cloud Mode
-                    const unsubscribe = db.collection('books').onSnapshot((snapshot) => {
+                    const unsubscribe = db.collection(collectionName).onSnapshot((snapshot) => {
                         const booksData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                         setBooks(booksData);
                         setIsLoading(false);
@@ -577,7 +592,7 @@
                     if (saved) setBooks(JSON.parse(saved));
                     setIsLoading(false);
                 }
-            }, [db]);
+            }, [db, collectionName]);
 
             // 3. Persist Local (only in Local Mode)
             useEffect(() => {
@@ -592,7 +607,7 @@
                 if (db) {
                     // Remove ID, let Firestore generate it
                     const { id, ...bookData } = newBook;
-                    await db.collection('books').add(bookData);
+                    await db.collection(collectionName).add(bookData);
                 } else {
                     setBooks([newBook, ...books]);
                 }
@@ -600,7 +615,7 @@
 
             const handleUpdateBook = async (updatedBook) => {
                 if (db) {
-                    await db.collection('books').doc(updatedBook.id).update(updatedBook);
+                    await db.collection(collectionName).doc(updatedBook.id).update(updatedBook);
                 } else {
                     setBooks(books.map(b => b.id === updatedBook.id ? updatedBook : b));
                 }
@@ -613,7 +628,7 @@
             const performDelete = async () => {
                 if (deleteConfirmation.bookId) {
                     if (db) {
-                         await db.collection('books').doc(deleteConfirmation.bookId).delete();
+                         await db.collection(collectionName).doc(deleteConfirmation.bookId).delete();
                     } else {
                         setBooks(books.filter(b => b.id !== deleteConfirmation.bookId));
                     }
@@ -633,16 +648,20 @@
                 }
             }, [darkMode]);
 
-            const handleSaveConfig = (config) => {
+            const handleSaveConfig = (config, collection) => {
                 localStorage.setItem('firebase-config', JSON.stringify(config));
+                localStorage.setItem('collection-name', collection);
                 setFirebaseConfig(config);
+                setCollectionName(collection);
                 setIsSyncModalOpen(false);
-                alert("Connected! Data will now sync.");
+                alert(`Connected to list: ${collection}`);
             };
 
             const handleClearConfig = () => {
                 localStorage.removeItem('firebase-config');
+                localStorage.removeItem('collection-name');
                 setFirebaseConfig(null);
+                setCollectionName('books');
                 setDb(null);
                 setIsSyncModalOpen(false);
                 alert("Disconnected. Switched back to offline storage.");
@@ -687,7 +706,7 @@
                                 <h1 className="text-2xl font-bold tracking-tight">BookTracker</h1>
                                 {db ? (
                                     <span className="text-xs font-medium text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded flex items-center gap-1 w-fit">
-                                        <Icon name="cloud-check" size={12}/> Synced
+                                        <Icon name="cloud-check" size={12}/> {collectionName}
                                     </span>
                                 ) : (
                                     <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-slate-800 dark:text-gray-400 px-2 py-0.5 rounded flex items-center gap-1 w-fit">
@@ -817,6 +836,7 @@
                         onSave={handleSaveConfig}
                         onClear={handleClearConfig}
                         currentConfig={firebaseConfig}
+                        currentCollection={collectionName}
                     />
 
                     <ConfirmModal 
