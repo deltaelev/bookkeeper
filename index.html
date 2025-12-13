@@ -44,23 +44,6 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .prose p { margin-bottom: 0.75em; }
-        
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .mic-active {
-            animation: pulse-red 1.5s infinite;
-            background-color: #fee2e2;
-            color: #ef4444;
-            border-color: #ef4444;
-        }
-        .dark .mic-active {
-            background-color: #450a0a;
-            color: #f87171;
-            border-color: #f87171;
-        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 dark:bg-slate-900 dark:text-gray-100 transition-colors duration-300 min-h-screen">
@@ -494,7 +477,6 @@
             const [noteLine, setNoteLine] = useState("");
             const [selectedColor, setSelectedColor] = useState("blue"); // Default color
             const [filterColor, setFilterColor] = useState("all");
-            const [isListening, setIsListening] = useState(false);
             
             // State for changing color of an existing note
             const [colorPickerNoteId, setColorPickerNoteId] = useState(null);
@@ -507,79 +489,6 @@
 
             // State for editing cover
             const [isEditingCover, setIsEditingCover] = useState(false);
-
-            // Microphone Handling
-            const recognitionRef = useRef(null);
-            const savedTextRef = useRef(""); // Store text state before listening
-
-            useEffect(() => {
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    recognitionRef.current = new SpeechRecognition();
-                    recognitionRef.current.continuous = true; // Keep listening
-                    recognitionRef.current.interimResults = true; // Show results immediately
-
-                    recognitionRef.current.onresult = (event) => {
-                        let transcript = '';
-                        // Reconstruct the full transcript from the current session
-                        for (let i = 0; i < event.results.length; ++i) {
-                            transcript += event.results[i][0].transcript;
-                        }
-                        
-                        // Combine saved text with new transcript
-                        // Check if we need a space (if saved text exists and doesn't end in space)
-                        const prefix = savedTextRef.current;
-                        const spacer = prefix && !prefix.endsWith(" ") ? " " : "";
-                        const fullText = prefix + spacer + transcript;
-
-                        // Update the correct state based on mode
-                        if (textEditingId) {
-                            setEditText(fullText);
-                        } else {
-                            setNoteText(fullText);
-                        }
-                    };
-
-                    recognitionRef.current.onend = () => {
-                        setIsListening(false);
-                    };
-                    
-                    recognitionRef.current.onerror = (event) => {
-                        console.error("Speech recognition error", event.error);
-                        setIsListening(false);
-                    };
-                }
-                
-                // Cleanup function
-                return () => {
-                    if (recognitionRef.current) {
-                        try {
-                            recognitionRef.current.stop();
-                        } catch(e) { /* ignore */ }
-                    }
-                };
-            }, [textEditingId]); // Re-init if mode changes
-
-            const toggleListening = () => {
-                if (!recognitionRef.current) {
-                    alert("Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.");
-                    return;
-                }
-
-                if (isListening) {
-                    recognitionRef.current.stop();
-                } else {
-                    // Save the current text before we start appending voice
-                    savedTextRef.current = textEditingId ? editText : noteText;
-                    try {
-                        recognitionRef.current.start();
-                        setIsListening(true);
-                    } catch(e) {
-                        console.error("Failed to start speech recognition", e);
-                        setIsListening(false);
-                    }
-                }
-            };
 
             const handleAddNote = (e) => {
                 e.preventDefault();
@@ -622,7 +531,6 @@
                 setEditPage(note.page || "");
                 setEditLine(note.line || "");
                 setColorPickerNoteId(null); // Close color picker if open
-                setIsListening(false); // Reset listening state
             };
 
             // Save edited text
@@ -789,27 +697,14 @@
                                 </div>
 
                                 {/* Add Note Form */}
-                                <form onSubmit={handleAddNote} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 mb-8 relative">
+                                <form onSubmit={handleAddNote} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 mb-8">
                                     <textarea
-                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none pr-10"
+                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg p-3 mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                                         rows="3"
                                         placeholder="Write your thought, quote, or reference..."
                                         value={noteText}
                                         onChange={(e) => setNoteText(e.target.value)}
                                     ></textarea>
-                                    
-                                    {/* Microphone Button */}
-                                    <button
-                                        type="button"
-                                        onClick={toggleListening}
-                                        className={`absolute right-6 top-6 p-2 rounded-full transition-all 
-                                            ${isListening 
-                                                ? 'mic-active' 
-                                                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-200'}`}
-                                        title={isListening ? "Stop Listening" : "Start Voice Input"}
-                                    >
-                                        <Icon name={isListening ? "microphone-slash" : "microphone"} size={20} weight={isListening ? "fill" : "regular"} />
-                                    </button>
                                     
                                     <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                                         <div className="flex gap-3 w-full sm:w-auto">
@@ -946,24 +841,12 @@
                                                                 </div>
                                                                 <div className="relative">
                                                                     <textarea
-                                                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-blue-500 rounded-lg p-3 text-gray-800 dark:text-gray-200 outline-none resize-none mb-2 pr-10"
+                                                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-blue-500 rounded-lg p-3 text-gray-800 dark:text-gray-200 outline-none resize-none mb-2"
                                                                         rows="3"
                                                                         value={editText}
                                                                         onChange={(e) => setEditText(e.target.value)}
                                                                         autoFocus
                                                                     />
-                                                                    {/* Microphone Button for Editing */}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={toggleListening}
-                                                                        className={`absolute right-2 top-2 p-2 rounded-full transition-all 
-                                                                            ${isListening 
-                                                                                ? 'mic-active' 
-                                                                                : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-gray-200'}`}
-                                                                        title={isListening ? "Stop Listening" : "Start Voice Input"}
-                                                                    >
-                                                                        <Icon name={isListening ? "microphone-slash" : "microphone"} size={16} weight={isListening ? "fill" : "regular"} />
-                                                                    </button>
                                                                 </div>
                                                                 <div className="flex justify-end gap-2">
                                                                     <button 
