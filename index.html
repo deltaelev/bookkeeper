@@ -191,6 +191,61 @@
                 </div>
             );
         };
+        
+        // --- New Description Component ---
+
+        const Description = ({ text }) => {
+            const [isExpanded, setIsExpanded] = useState(false);
+            
+            if (!text) return <p className="text-gray-500 italic">No description available.</p>;
+
+            // Helper to strip HTML for the character count check and preview
+            const stripHtml = (html) => {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return tmp.textContent || tmp.innerText || "";
+            };
+
+            const plainText = stripHtml(text);
+            const isLong = plainText.length > 300;
+
+            if (!isLong) {
+                return (
+                    <div 
+                        className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300" 
+                        dangerouslySetInnerHTML={{ __html: text }} 
+                    />
+                );
+            }
+
+            return (
+                <div className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300">
+                    {isExpanded ? (
+                        <div className="animate-in fade-in duration-300">
+                            <div dangerouslySetInnerHTML={{ __html: text }} />
+                            <button 
+                                onClick={() => setIsExpanded(false)}
+                                className="text-blue-600 hover:text-blue-700 font-bold mt-2 text-sm flex items-center gap-1 hover:underline decoration-blue-600 underline-offset-4"
+                            >
+                                Show Less <Icon name="caret-up" size={16} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <p>
+                                {plainText.slice(0, 300)}...
+                            </p>
+                            <button 
+                                onClick={() => setIsExpanded(true)}
+                                className="text-blue-600 hover:text-blue-700 font-bold mt-2 text-sm flex items-center gap-1 hover:underline decoration-blue-600 underline-offset-4"
+                            >
+                                Read More <Icon name="caret-down" size={16} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
 
         // --- Modals ---
 
@@ -654,9 +709,9 @@
                             <div>
                                 <h1 className="text-4xl font-bold mb-2 text-gray-900 dark:text-white">{book.title}</h1>
                                 <p className="text-xl text-gray-500 dark:text-gray-400 mb-6">by {book.authors?.join(", ")}</p>
-                                <div className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-300" 
-                                     dangerouslySetInnerHTML={{ __html: book.description }}>
-                                </div>
+                                
+                                {/* UPDATED: Uses the new Description component */}
+                                <Description text={book.description} />
                             </div>
 
                             <div className="border-t border-gray-200 dark:border-slate-700 pt-8">
