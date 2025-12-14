@@ -1132,9 +1132,13 @@
             }, [books]);
 
             const filteredBooks = useMemo(() => {
+                const term = searchTerm.toLowerCase();
                 return books
                     .filter(book => {
-                        const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase());
+                        const matchesTitle = book.title.toLowerCase().includes(term);
+                        const matchesAuthor = book.authors?.some(author => author.toLowerCase().includes(term));
+                        const matchesSearch = matchesTitle || matchesAuthor;
+
                         const matchesGenre = genreFilter === "All" || book.categories?.[0] === genreFilter;
                         const matchesStatus = statusFilter === "All" || (book.status || 'want-to-read') === statusFilter;
                         return matchesSearch && matchesGenre && matchesStatus;
