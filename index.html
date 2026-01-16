@@ -471,18 +471,12 @@
                         <div className="mb-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">1. Select or Create List</label>
-                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="grid grid-cols-1 gap-3 mb-3">
                                     <button 
                                         onClick={() => setLocalCollection('alices-books')}
                                         className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium transition-all ${localCollection === 'alices-books' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-400' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:text-gray-400 dark:hover:bg-slate-700'}`}
                                     >
                                         <Icon name="user" /> Alice's Books
-                                    </button>
-                                    <button 
-                                        onClick={() => setLocalCollection('daniels-books')}
-                                        className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border font-medium transition-all ${localCollection === 'daniels-books' ? 'bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-500 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-400' : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-slate-700 dark:text-gray-400 dark:hover:bg-slate-700'}`}
-                                    >
-                                        <Icon name="user" /> Daniel's Books
                                     </button>
                                 </div>
                                 <div className="relative">
